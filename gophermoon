@@ -1,8 +1,136 @@
---- Gopher Moon Version 0.1
+--- Gopher Moon Version 0.2
 --- a simple Gopher Server in Lua
 --- with some help from Systemd socket activation
+-------------------------------------------------
 
-path = io.read()
-io.write("iWelcome to GopherMoon @ defaultroutes.de\t\tdefaultroutes.de\t70\r\n")
-io.write("i----------------------------------------\t\tdefaultroutes.de\t70\r\n")
-io.write(".\r\n")
+--- configuration variables
+---------------------------
+version="0.2"
+servername="blog.defaultroutes.de"
+serverport="70"
+gopherroot="/gopher"
+
+
+--- some helper functions
+--- not 100% correct but hopefully good enough for
+--- the task
+--------------------------------------------------
+
+--- test if a filesystem resource exists
+function exists(name)
+   if type(name)~="string" then return false end
+   return os.rename(name,name) and true or false
+end
+
+--- test if a filesystem resource is a file
+function isFile(name)
+   if type(name)~="string" then return false end
+   if not exists(name) then return false end
+   local f = io.open(name,r)
+   if f then f:close() return true end
+   return false
+end
+
+--- test if a filename is a directory
+function isDir(path)
+   f = io.open(path)
+   return not f:read(0) and f:seek("end") ~= 0
+end
+
+--- test if a file is readable
+function isReadable(file)
+   if not isFile(file) then return false end
+   local f=io.open(file,"r")
+   return not f~=nil 
+end
+
+--- Gopher Utility routines
+---------------------------
+
+--- send a text line with CR/LF (as required by the Gopher protocol)
+function text_send(text)
+   io.write(text .. "\r\n")
+end
+
+-- ends sending a text file via the gopher protocol
+function send_end()
+   text_send(".")
+end
+
+--- sends a gopher resource line
+function send_dir(filetype, name, selector, server, port)
+   local tab = "\t"
+   text_send(filetype .. name .. tab .. selector .. tab .. server .. tab .. port)
+end
+
+--- send a Gopher Information Line
+function send_info(text)
+   send_dir("i",text,"/",servername,serverport)
+end
+
+--- send a Textfile Gopher-style
+function send_textfile(filepath)
+   local f=io.open(filepath,"r")
+   if f~=nil then
+      for line in io.lines(filepath) do 
+	 io.write(line .. "\r\n")
+      end
+      io.close(f)
+   end
+   send_end()
+end
+
+--- send a Textfile Gophermap
+function send_gophermap(filepath)
+   local f=io.open(filepath,"r")
+   if f~=nil then
+      for line in io.lines(filepath) do
+	 if not line:find("\t") then
+	    send_info(line)
+	 else	 
+	    io.write(line .. "\r\n")
+	 end
+      end
+      io.close(f)
+      send_end()
+   end
+end
+
+--- Main Program
+----------------
+
+--- read the selector from the client
+selector = io.read()
+
+--- remove CR (13/$0D) from input
+selector=selector:sub(1, -2)
+
+--- if an empty selector has been send, use the root
+if selector == '' then
+   selector = "/"
+end
+
+--- make selector relative to the gopher root
+filepath = gopherroot .. selector
+
+--- if the selector points to a directory,
+--- do we have a "gophermap" file? If "yes",
+--- send that file. Else, if the selector
+--- points to a (text-) file, send it
+--- if both are false, send an error message
+if isDir(filepath) then
+   gophermap = filepath .. "/gophermap"
+   if isReadable(gophermap) then
+      send_gophermap(gophermap)
+   end
+else
+   if isReadable(filepath) then
+      send_textfile(filepath)
+   else
+      send_info("Welcome to GopherMoon @ defaultroutes.de")
+      send_info("----------------------------------------")
+      send_info("Error: Selector not found")
+      send_end()
+   end
+end
+
