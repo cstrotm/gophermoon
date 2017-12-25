@@ -1,0 +1,8 @@
+--- Gopher Moon Version 0.1
+--- a simple Gopher Server in Lua
+--- with some help from Systemd socket activation
+
+path = io.read()
+io.write("iWelcome to GopherMoon @ defaultroutes.de\t\tdefaultroutes.de\t70\r\n")
+io.write("i----------------------------------------\t\tdefaultroutes.de\t70\r\n")
+io.write(".\r\n")
