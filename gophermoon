@@ -1,12 +1,12 @@
---- Gopher Moon Version 0.2
+--- Gopher Moon Version 0.3
 --- a simple Gopher Server in Lua
 --- with some help from Systemd socket activation
 -------------------------------------------------
 
 --- configuration variables
 ---------------------------
-version="0.2"
-servername="blog.defaultroutes.de"
+version="0.3"
+servername="gopher.defaultroutes.de"
 serverport="70"
 gopherroot="/gopher"
 
@@ -33,6 +33,7 @@ end
 
 --- test if a filename is a directory
 function isDir(path)
+   if not exists(path) then return false end
    f = io.open(path)
    return not f:read(0) and f:seek("end") ~= 0
 end
@@ -96,6 +97,19 @@ function send_gophermap(filepath)
    end
 end
 
+--- write a log entry
+function write_log(severity,msg)
+  io.stderr:write(severity .. ": " .. msg .. "\n")
+end
+
+--- send an error message to the Gopher client
+function send_error(msg)
+      send_info("Welcome to GopherMoon @ gopher.defaultroutes.de")
+      send_info("-----------------------------------------------")
+      send_info("Error: " .. msg)
+      send_end()
+end
+
 --- Main Program
 ----------------
 
@@ -109,6 +123,8 @@ selector=selector:sub(1, -2)
 if selector == '' then
    selector = "/"
 end
+
+write_log("INFO", "Selector is " .. selector)
 
 --- make selector relative to the gopher root
 filepath = gopherroot .. selector
@@ -127,10 +143,7 @@ else
    if isReadable(filepath) then
       send_textfile(filepath)
    else
-      send_info("Welcome to GopherMoon @ defaultroutes.de")
-      send_info("----------------------------------------")
-      send_info("Error: Selector not found")
-      send_end()
+      send_error("Selector [" .. selector .. "] not found")
+      write_log("ERROR","Selector not found")
    end
 end
-
